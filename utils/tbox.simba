@@ -1,0 +1,26 @@
+{$DEFINE WL_TBOX_INCLUDED}
+{$IFNDEF WL_UTILS}
+  {$I WaspLib/utils.simba}
+{$ENDIF}
+
+function TBox.Contains(tpa: TPointArray): Boolean; constref; overload;
+var
+  i: Int32;
+begin
+  for i := 0 to High(tpa) do
+    if not Self.Contains(tpa[i]) then
+      Exit(False);
+
+  Result := True;
+end;
+
+function TBoxArray.Filter(tpa: TPointArray): TPointArray;
+var
+  b: TBox;
+begin
+  if Self = [] then
+    Exit(tpa);
+
+  for b in Self do
+    Result += tpa.FilterBox(b);
+end;

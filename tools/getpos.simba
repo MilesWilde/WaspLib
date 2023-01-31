@@ -1,0 +1,50 @@
+(*
+Tool GetPos
+===========
+Simple tool to get the player coordinate.
+*)
+
+{$DEFINE SRL_DISABLE_REMOTEINPUT}
+{$I SRL-T/osr.simba}
+{$I WaspLib/osr.simba}
+
+const
+  USE_KEYBOARD = True;
+  MAP: TBox = RSRegions.GRAND_EXCHANGE;
+  SCALE = 9;
+  DEBUG_WALKER = True;
+
+var
+  rsw: TRSWalker;
+
+procedure Run();
+var
+  P: TPoint;
+begin
+  while True do
+  begin
+    P := RSW.GetMyPos();
+
+    if USE_KEYBOARD and Keyboard.IsKeyDown(VK_SPACE) then
+    begin
+      Writeln('[', P.X, ', ', P.Y, '];');
+      if DEBUG_WALKER then RSW.DebugPosition;
+      Wait(1000);
+    end
+
+    else
+    if not USE_KEYBOARD then
+    begin
+      Writeln('[', P.X, ', ', P.Y, '];');
+      if DEBUG_WALKER then RSW.DebugPosition;
+    end;
+
+  end;
+end;
+
+
+begin
+  rsw.Setup([MAP], SCALE);
+  ClearDebug();
+  Run();
+end.

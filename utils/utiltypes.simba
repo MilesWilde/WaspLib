@@ -1,0 +1,368 @@
+(*
+Utility types, contants and variables
+=====================================
+
+This file contains types, contants and variables that need to be pre-loaded for wasplib to compile.
+*)
+
+{$DEFINE WL_UTILTYPES_INCLUDED}
+{$IFNDEF WL_UTILS}
+  {$I WaspLib/utils.simba}
+{$ENDIF}
+
+type
+(*
+type EWLBankLocation
+~~~~~~~~~~~~~~~~~~~~
+
+EWLBankLocation is a enumerator that contains all bank locations supported by WaspLib.
+*)
+  EWLBankLocation = (
+    AL_KHARID_BANK,
+    ARDOUGNE,
+    CASTLE_WARS_BANK,
+    CATHERBY_BANK,
+    CRAFTING_GUILD_BANK,
+    DRAYNOR_VILLAGE_BANK,
+    EDGEVILLE_BANK,
+    FALADOR_BANK,
+    GRAND_EXCHANGE_BANK,
+    LUNAR_ISLE_BANK,
+    MINING_GUILD_BANK,
+    PRIFDDINAS_BANK,
+    SEERS_VILLAGE_BANK,
+    MOR_UL_REK_BANK,
+    VARROCK,
+    WINTERTODT_BANK,
+    SHILO_VILLAGE_BANK
+  );
+
+function EWLBankLocation.GetString(i: Int32): String; static;
+begin
+  Result := ToString(EWLBankLocation(i)).ToLower().Replace('_bank', '').Replace('_', ' ');
+end;
+
+function EWLBankLocation.GetStrings(): TStringArray; static;
+var
+  i: Int32;
+begin
+  for i := 0 to Ord(High(EWLBankLocation)) do
+    Result += EWLBankLocation.GetString(i);
+end;
+
+function EWLBankLocation.IndexOf(value: String): Int32; static;
+var
+  i: Int32;
+begin
+  value := value.ToLower();
+  for i := 0 to Ord(High(EWLBankLocation)) do
+    if value = EWLBankLocation.GetString(i) then
+      Exit(i);
+
+  Result := -1;
+end;
+
+function EWLBankLocation.Find(value: String): EWLBankLocation; static;
+var
+  i: Int32;
+begin
+  value := value.ToLower().Replace('''','');
+  for i := 0 to Ord(High(EWLBankLocation)) do
+    if value = EWLBankLocation.GetString(i) then
+      Exit(EWLBankLocation(i));
+end;
+
+type
+(*
+type EWLCombatLocation
+~~~~~~~~~~~~~~~~~~~~~~
+
+EWLCombatLocation is a enumerator that contains all the combat locations supported by WaspLib.
+As in... the locations that have mapped coordinates!
+*)
+  EWLCombatLocation = (
+    ABYSS,
+    ASGARNIA_ICE_DUNGEON,
+    CATACOMBS_OF_KOUREND,
+    CHASM_OF_FIRE,
+    CORSAIR_COVE,
+    CORSAIR_COVE_DUNGEON,
+    FREMMENNIK_SLAYER_CAVE,
+    GIANTS_DEN,
+    IORWERTH_DUNGEON,
+    KALPHITE_CAVE,
+    KALPHITE_LAIR,
+    KARUULM_SLAYER_DUNGEON,
+    KRAKEN_COVE,
+    LUMBRIDGE,
+    LUNAR_ISLE,
+    MOS_LEHARMLESS_CAVE,
+    MOURNER_TUNNELS,
+    SLAYER_TOWER_FLOORS,
+    SLAYER_TOWER_GROUNDFLOOR,
+    SMOKE_DEVIL_DUNGEON,
+    SMOKE_DUNGEON,
+    STRONGHOLD_SLAYER_DUNGEON
+  );
+
+function EWLCombatLocation.GetString(i: Int32): String; static;
+begin
+  Result := ToString(EWLCombatLocation(i)).ToLower().Replace('_', ' ');
+end;
+
+function EWLCombatLocation.GetStrings(): TStringArray; static;
+var
+  i: Int32;
+begin
+  for i := 0 to Ord(High(EWLCombatLocation)) do
+    Result += EWLCombatLocation.GetString(i);
+end;
+
+function EWLCombatLocation.IndexOf(value: String): Int32; static;
+var
+  i: Int32;
+begin
+  value := value.ToLower();
+  for i := 0 to Ord(High(EWLCombatLocation)) do
+    if value = EWLCombatLocation.GetString(i) then
+      Exit(i);
+
+  Result := -1;
+end;
+
+function EWLCombatLocation.Find(value: String): EWLCombatLocation; static;
+var
+  i: Int32;
+begin
+  value := value.ToLower().Replace('''','');
+  for i := 0 to Ord(High(EWLCombatLocation)) do
+    if value = EWLCombatLocation.GetString(i) then
+      Exit(EWLCombatLocation(i));
+end;
+
+
+
+
+type
+(*
+type ERSConsumable
+~~~~~~~~~~~~~~~~~~
+
+ERSConsumable is a enumerator that contains all types of consumable.
+*)
+  ERSConsumable = (
+    FOOD_CONSUMABLE,
+    PRAYER_CONSUMABLE,
+    ENERGY_CONSUMABLE,
+    POISON_CONSUMABLE,
+    VENOM_CONSUMABLE,
+    ANTI_FIRE_CONSUMABLE,
+    BOOST_CONSUMABLE
+  );
+
+const
+(*
+const FOOD_ARRAY
+~~~~~~~~~~~~~~~~
+
+Global FOOD_ARRAY constant.
+This array holds all types of consumable that heal the player.
+*)
+  FOOD_ARRAY: TRSItemArray = [
+    'Shrimps', 'Cooked chicken', 'Cooked meat', 'Sardine', 'Edible seaweed', 'Bread', 'Herring',
+    'Mackerel', 'Choc-ice', 'Trout', 'Cod', 'Pike', 'Roast beast meat',
+    'Pineapple punch', 'Salmon', 'Tuna', 'Jug of wine', 'Rainbow fish',
+    'Stew', 'Banana stew',
+    'Cake(1..3)',
+    'Meat pie(1..2)',
+    'Bass',
+    'Plain pizza(1..2)',
+    'Lobster', 'Swordfish', 'Potato with butter',
+    'Apple pie(1..2)',
+    'Chocolate cake(1..3)',
+    'Tangled toad''s legs', 'Chocolate bomb', 'Potato with cheese',
+    'Meat pizza(1..2)',
+    'Admiral pie(1..2)',
+    'Monkfish',
+    'Anchovy pizza(1..2)',
+    'Cooked karambwan', 'Curry', 'Ugthanki kebab',
+    'Guthix rest(1..4)',
+    'Dragonfruit pie(1..2)',
+    'Mushroom potato', 'Shark', 'Sea turtle',
+    'Pineapple pizza(1..2)',
+    'Summer pie(1..2)',
+    'Wild pie(1..2)',
+    'Manta ray', 'Tuna potato', 'Dark crab', 'Anglerfish',
+    'Saradomin brew(1..4)'
+  ];
+
+(*
+const PRAYER_ARRAY
+~~~~~~~~~~~~~~~~~~
+
+Global PRAYER_ARRAY constant.
+This array holds all types of consumable that refill prayer.
+*)
+  PRAYER_ARRAY: TRSItemArray = [
+    'Zamorak brew(1..4)',
+    'Sanfew serum(1..4)',
+    'Super restore(1..4)',
+    'Prayer potion(1..4)',
+    'Jangerberries'
+  ];
+
+(*
+const ENERGY_ARRAY
+~~~~~~~~~~~~~~~~~~
+
+Global ENERGY_ARRAY constant.
+This array holds all types of consumable that refill energy.
+*)
+  ENERGY_ARRAY: TRSItemArray = [
+    'White tree fruit',
+    'Winter sq''irkjuice', 'Spring sq''irkjuice',
+    'Autumn sq''irkjuice', 'Summer sq''irkjuice',
+    'Bandages',
+    'Guthix rest(1..4)',
+    'Papaya fruit',
+    'Energy potion(1..4)',
+    'Purple sweets',
+    'Summer pie(1..2)',
+    'Super energy(1..4)',
+    'Stamina potion(1..4)',
+    'Strange fruit', 'Mint cake', 'Gout tuber'
+  ];
+
+(*
+const ANTI_POISON_ARRAY
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Global ANTI_POISON_ARRAY constant.
+This array holds all types of consumable that heal poison.
+*)
+  ANTI_POISON_ARRAY: TRSItemArray = [
+    'Sanfew serum(1..4)',
+    'Anti-venom+(1..4)',
+    'Anti-venom(1..4)',
+    'Antidote++(1..4)',
+    'Antidote+(1..4)',
+    'Superantipoison(1..4)',
+    'Antipoison(1..4)'
+  ];
+
+(*
+const ANTI_VENOM_ARRAY
+~~~~~~~~~~~~~~~~~~~~~~
+
+Global ANTI_VENOM_ARRAY constant.
+This array holds all types of consumable that heal venom.
+*)
+  ANTI_VENOM_ARRAY: TRSItemArray = [
+    'Anti-venom+(1..4)',
+    'Anti-venom(1..4)'
+  ];
+
+(*
+const ANTI_FIRE_ARRAY
+~~~~~~~~~~~~~~~~~~~~~
+
+Global ANTI_FIRE_ARRAY constant.
+This array holds all types of consumable that protect from dragonfire.
+*)
+  ANTI_FIRE_ARRAY: TRSItemArray = [
+    'Antifire potion(1..4)',
+    'Super antifire potion(1..4)',
+    'Extended antifire(1..4)',
+    'Extended super antifire(1..4)'
+  ];
+
+(*
+const BOOST_ARRAY
+~~~~~~~~~~~~~~~~~
+
+Global BOOST_ARRAY constant.
+This array holds all types of consumable that boost the player stats.
+*)
+  BOOST_ARRAY: TRSItemArray = [
+    'Super combat potion(1..4)',
+    'Super attack(1..4)',
+    'Super strength(1..4)',
+    'Bastion potion(1..4)',
+    'Ranging potion(1..4)'
+  ];
+
+(*
+const TRASH_ARRAY
+~~~~~~~~~~~~~~~~~
+
+Global TRASH_ARRAY constant.
+This array holds all types of trash items left over from eating/drinking certain types of consumables.
+*)
+  TRASH_ARRAY: TRSItemArray = [
+    'Cocktail glass',
+    'Jug',
+    'Bowl',
+    'Pie dish',
+    'Vial',
+    'Beer glass',
+    'Empty cup'
+  ];
+
+type
+  WLSettings = record
+  class var
+    MaxActions: Int32;
+    MaxTime:    Int64;
+
+    Breaks: Boolean;
+    Sleep:
+      record
+        Enabled: Boolean;
+
+        Hour: String;
+        HourOverride: String;
+
+        Length: Double;
+        LengthOverride: Double;
+      end;
+    Antiban:
+      record
+        Enabled:  Boolean;
+
+        Camera:   Boolean;
+        Mouse:    Boolean;
+        Chat:     Boolean;
+        GameTabs: Boolean;
+        Bank:     Boolean;
+      end;
+
+    TextReport: Boolean;
+
+    RemoteInput:
+      record
+        Enabled: Boolean;
+        BlockInput: Boolean;
+        HUDReport: Boolean;
+        ScriptDebug: Boolean;
+      end;
+
+    Stats: Boolean;
+
+    BankLocation: EWLBankLocation;
+  end;
+
+begin
+  WLSettings.MaxActions  := -1;
+  WLSettings.MaxTime     := -1;
+
+  WLSettings.Breaks        := True;
+  WLSettings.Sleep.Enabled := True;
+  WLSettings.Antiban       := [True, True, True, True, True, True];
+
+  WLSettings.TextReport  := True;
+  WLSettings.RemoteInput := [True, False, True, False];
+
+  WLSettings.Stats       := True;
+
+  WLSettings.BankLocation := GRAND_EXCHANGE_BANK
+end;

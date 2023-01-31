@@ -1,0 +1,5 @@
+{$DEFINE WL_EQUIPMENT_INCLUDED}
+{$IFNDEF WL_OSR}
+  {$I WaspLib/osr.simba}
+{$ENDIF}
+

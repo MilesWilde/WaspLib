@@ -1,0 +1,209 @@
+(*
+LootHandler
+===========
+LootHandler is a record made to handle looting.
+*)
+
+{$DEFINE WL_LOOTHANDLER_INCLUDED}
+{$IFNDEF WL_OSR}
+  {$I WaspLib/osr.simba}
+{$ENDIF}
+
+const
+  LOOT_ITEM_ARRAY: TStringArray = [
+    'Clue scroll (easy)', 'Clue scroll (medium)',
+    'Clue scroll (hard)', 'Clue scroll (elite)',
+    'Clue scroll (master)',
+    'Dark totem base', 'Dark totem middle', 'Dark totem top',
+    'Dark totem', 'Ancient shard', 'Brimstone key',
+    'Mist battlestaff', 'Dust battlestaff',
+    'Eternal gem', 'Imbued heart', 'Crystal shard', 'Abyssal head',
+    'Curved bone', 'Long bone',
+    'Imp champion scroll', 'Goblin champion scroll', 'Skeleton champion scroll',
+    'Zombie champion scroll', 'Giant champion scroll',
+    'Hobgoblin champion scroll', 'Ghoul champion scroll',
+    'Earth warrior champion scroll', 'Jogre champion scroll',
+    'Lesser demon champion scroll',
+    'Giant key', 'Mossy key'
+  ];
+
+  LOOT_ITEM_COLORS: array of TCTS2Color = [
+    [6579858, 9, 0.09, 0.33],   //vile and malicious ashes
+    [13422033, 18, 0.20, 0.30], //dragon bones (this matches a lot with proselyte. might need to be removed)
+    [7760980, 9, 0.06, 0.14],   //rune items (this might need better colors but this one doesn't match in CoK background,
+    [14952348, 1, 0.06, 1.46],  //ancient shard
+    [11500065, 14, 0.05, 1.23], //Totem parts (blue)
+    [1003531, 10, 0.11, 2.52],  //Totem parts (green)
+    [4345976, 17, 0.10, 0.37],  //Dark bow
+    [2895188, 6, 0.16, 0.41],   //Abyssal whip (matches a little with primordial boots)
+    [1776416, 1, 0.01, 0.01],   //Black mystic bottom (probably all parts too).
+    [3620158, 9, 0.28, 0.50],   //Black mask
+    [10000802, 14, 0.13, 0.17], //Runes (matches with proselyte)
+    [1424100, 20, 0.02, 0.66],  //gold coins
+    [808255, 11, 0.10, 2.30],   //herb seeds
+    [482129, 11, 0.48, 1.48],   //ranarr
+    [7311001, 7, 0.08, 0.21],   //noted drops
+    [680832, 11, 0.04, 1.43]    //battlestaff
+  ];
+
+type
+  TRSLootHandler = record(TSRLBaseRecord)
+    Loot: TRSGroundItem;
+    Drops: array of TRSMonsterDrop;
+    ValueThreshold: Int32;
+    CheckedLoot: Boolean;
+    IsSetup: Boolean;
+  end;
+
+function TRSLootHandler.IsGoodDrop(Drop: TRSMonsterDrop): Boolean;
+var
+  GEValue: Int32;
+begin
+  if LOOT_ITEM_ARRAY.IndexOf(Drop.Item) > -1 then
+    Exit(True);
+
+  GEValue := ItemData.GetAverage(Drop.ID);
+
+  Result := GEValue >= Self.ValueThreshold;
+  if Result then
+    Exit;
+
+  Result := Drop.Stackable and
+            ((GEValue * Drop.Quantity) >= (Self.ValueThreshold / 5));
+  if Result then
+    Exit;
+
+  Result := ItemData.GetHighAlch(Drop.ID) > Self.ValueThreshold;
+  if Result then
+    AlchItemArray += Drop.Item;
+end;
+
+procedure TRSLootHandler.Setup(monster: TRSMonster; value: Int32 = 5000);
+var
+  i: Int32;
+  tempDrops: array of TRSMonsterDrop;
+begin
+  if (monster.Name = '') or (value <= 0) then
+    Exit;
+
+  Self.ValueThreshold := value;
+
+  Self.Loot.Setup();
+
+  if monster.Coordinates <> [] then
+  begin
+    Self.Loot.Walker := monster.Walker;
+    Self.Loot.Setup(monster.DotFilter[0].Circle.Radius, 0, monster.Coordinates);
+  end;
+
+  Self.Loot.Finder.Colors := LOOT_ITEM_COLORS;
+  Self.Loot.Filter.UpText := False;
+
+  DebugGItemArray += Self.Loot;
+
+  tempDrops := MonsterData.GetDrops(monster.Name);
+
+  for i := 0 to High(tempDrops) do
+  begin
+    if Self.IsGoodDrop(tempDrops[i]) then
+    begin
+      Self.Drops += tempDrops[i];
+      Self.Loot.UpText += tempDrops[i].Item;
+    end;
+  end;
+
+  Self.IsSetup:= Self.Loot <> [];
+end;
+
+function TRSLootHandler.HasSpace(drop: TRSMonsterDrop): Boolean;
+begin
+  Result := not Inventory.IsFull() or (drop.Stackable and Inventory.ContainsItem(drop.Item));
+end;
+
+function TRSLootHandler.HandleLooting(): Boolean;
+var
+  i: Int32;
+  tmpFilter: TRSDotFilterArray; //Used to reset filters.
+begin
+  if not MainScreen.IsUpText('Take') then
+  begin
+    ChooseOption.Open();
+    if not ChooseOption.HasOption('Take') then
+      Exit;
+  end;
+
+  Self.CheckedLoot := True;
+  tmpFilter := Self.Loot.DotFilter;
+  Self.Loot.DotFilter.Setup([Self.Loot.ClosestDot.X, Self.Loot.ClosestDot.Y, 3], True);
+
+  if not ChooseOption.IsOpen() and MainScreen.IsUpText(Self.Loot.UpText, -1, i) then
+  begin
+    if not Self.HasSpace(Self.Drops[i]) then
+    begin
+      if Inventory.Consume(ERSConsumable.FOOD_CONSUMABLE) then
+        Self.Loot.Hover(5)
+      else
+      begin
+        Self.Loot.DotFilter := tmpFilter;
+        Exit;
+      end;
+    end;
+    Mouse.Click(MOUSE_LEFT);
+    Self.Loot.DotFilter := tmpFilter;
+    Exit(True);
+  end;
+
+  if ChooseOption.Open() then
+  begin
+    if not ChooseOption.HasOption(Self.Loot.UpText, i) then
+    begin
+      Self.Loot.DotFilter := tmpFilter;
+      Exit;
+    end;
+
+    if not Self.HasSpace(Self.Drops[i]) then
+    begin
+      if Inventory.Consume(ERSConsumable.FOOD_CONSUMABLE) then
+        Self.Loot.Hover(5)
+      else
+      begin
+        Self.Loot.DotFilter := tmpFilter;
+        Exit;
+      end;
+    end;
+
+    Result := ChooseOption.Select(Self.Loot.UpText[i]);
+  end;
+
+  Self.Loot.DotFilter := tmpFilter;
+end;
+
+function TRSLootHandler.CheckLoot(P: TPoint): Boolean;
+begin
+  Mouse.Move(P);
+
+  Result := Self.HandleLooting();
+end;
+
+function TRSLootHandler.CheckLoot(b: TBox): Boolean; overload;
+begin
+  Mouse.Move(b);
+
+  Result := Self.HandleLooting();
+end;
+
+function TRSLootHandler.CheckLoot(): Boolean; overload;
+begin
+  if not Self.Loot.Hover(0) then
+    Exit;
+
+  Result := Self.HandleLooting();
+  if Result then
+    Minimap.WaitMoving();
+
+  if Self.CheckedLoot then
+  begin
+    Self.Loot.DotFilter.Setup([Self.Loot.ClosestDot.X, Self.Loot.ClosestDot.Y, 2], False, 120 * ONE_SECOND);
+    Self.CheckedLoot := False;
+  end;
+end;
