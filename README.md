@@ -13,7 +13,6 @@
  
  Some things in WaspLib could be coming to SRL in the future but others are just too custom to ever be accepted there and will remain here.
 
-
  # What can I expect to get with WaspLib?
 
  ## Better walker maps
@@ -32,7 +31,7 @@
  - Slayer tower
  - Much much more
 
- ![Image of WaspLib Map](https://github.com/Torwent/WaspLib/raw/master/docs/images/runescape.png)
+ ![Image of WaspLib Map](https://github.com/Torwent/WaspLib/raw/master/osr/walker/map.png)
  
  ## WalkActions
  WaspLib also has a way of doing actions while walking.

@@ -52,7 +52,7 @@ begin
 
   XPBar.EarnedXP(); //Make sure WL.PreviousXP is set to current XP.
   Result := Self.MouseSpell(spell, MOUSE_LEFT) and
-            WaitUntil(Self._CastedSpell(spell), 100, SRL.TruncatedGauss(1000, 2000));
+            WaitUntil(Self._CastedSpell(spell), 100, SRL.TruncatedGauss(2400, 3000));
 end;
 
 

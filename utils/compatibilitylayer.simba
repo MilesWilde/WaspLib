@@ -112,7 +112,7 @@ begin
 end;
 
 //new simba1500 function for all arrays.
-function TIntegerArray.Intersection(other: TIntegerArray): TIntegerArray;
+function TIntegerArray.Intersection(other: TIntegerArray): TIntegerArray; constref;
 var
   i: Int32;
 begin
@@ -121,14 +121,6 @@ begin
       Result += other[i];
 end;
 
-
-
-
-//new simba1500 function for all arrays, returns an array with the elements that are the same in the 2 input arrays.
-function TPointArray.Intersection(other: TPointArray): TPointArray; constref;
-begin
-  GetSamePointsATPA([Self, Other], Result);
-end;
 
 //new simba1500 function for all arrays.
 function TPointArray.Contains(const Value: TPoint): Boolean;
@@ -175,7 +167,7 @@ end;
 //Similar to TPointArray.Fill()
 function TPointArray.ShapeFill(): TPointArray; constref;
 begin
-  Result := Self;
+  Result := Copy(Self);
   FillEllipse(Result);
 end;
 
@@ -183,18 +175,6 @@ end;
 function TPointArray.Rotate(AngleRad: Double; mid: Vector2): TPointArray; constref; overload;
 begin
   Result := RotatePoints(Self, AngleRad, mid.X, mid.Y);
-end;
-
-function TPointArray.First(): TPoint;
-begin
-  if Length(Self) > 0 then
-    Result := Self[0];
-end;
-
-function TPointArray.Last(): TPoint;
-begin
-  if Length(Self) > 0 then
-    Result := Self[High(Self)];
 end;
 
 function TPointArray.CreateFromLine(start, stop: TPoint): TPointArray; static;
@@ -210,18 +190,6 @@ begin
   Result := Point((Self.X2 + Self.X1+1) div 2, (Self.Y2 + Self.Y1+1) div 2);
 end;
 
-
-function T2DPointArray.First(): TPointArray;
-begin
-  if Length(Self) > 0 then
-    Result := Self[0];
-end;
-
-function T2DPointArray.Last(): TPointArray;
-begin
-  if Length(Self) > 0 then
-    Result := Self[High(Self)];
-end;
 
 function T2DPointArray.ExcludeSize(MinLen:Int32; KeepIf:EComparator=__LT__): T2DPointArray; constref;
 var

@@ -43,11 +43,11 @@
 
 {$IFNDEF WL_BASESTATS_INCLUDED}         {$I osr/basestats.simba}
 {$IFNDEF WL_CHAT_INCLUDED}              {$I osr/interface/chat.simba}
+{$IFNDEF WL_BANKPIN_INCLUDED}           {$I osr/interface/bankpin.simba}
 
 {$IFNDEF WL_MM2MS_INCLUDED}             {$I osr/mm2ms.simba}
 {$IFNDEF WL_DOTFILTERS_INCLUDED}        {$I osr/dotfilters.simba}
 {$IFNDEF WL_MINIMAP_INCLUDED}           {$I osr/interface/minimap.simba}
-{$IFNDEF WL_WALKER_REGIONS_INCLUDED}    {$I osr/walker/walker_regions.simba}
 {$IFNDEF WL_WALKER_INCLUDED}            {$I osr/walker/walker.simba}
 
 {$IFNDEF WL_WALKEROBJECT_INCLUDED}      {$I osr/walker/objects/walkerobjects.simba}
@@ -78,9 +78,12 @@
 {$IFNDEF WL_PRAYER_INCLUDED}            {$I osr/interface/gametabs/prayer.simba}
 {$IFNDEF WL_RSFISHING_HANDLER_INCLUDED} {$I osr/handlers/rsfishinghandler.simba}
 {$IFNDEF WL_LOGOUT_INCLUDED}            {$I osr/interface/gametabs/logout.simba}
+{$IFNDEF WL_MUSHTREE_INCLUDED}          {$I osr/interface/mushtree.simba}
+{$IFNDEF WL_WORLDHOPPER_INCLUDED}       {$I osr/interface/worldhopper.simba}
 
 
-
+{$ELSE}{$ENDIF}
+{$ELSE}{$ENDIF}
 {$ELSE}{$ENDIF}
 {$ELSE}{$ENDIF}
 {$ELSE}{$ENDIF}

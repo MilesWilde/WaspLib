@@ -1,12 +1,12 @@
 {$UNDEF SCRIPT_ID}{$DEFINE SCRIPT_ID := ''}
 {$UNDEF SCRIPT_REVISION}{$DEFINE SCRIPT_REVISION := '1'}
-{$IFDEF WINDOWS}{$DEFINE SCRIPT_GUI}{$ENDIF}
+{$IFDEF WINDOWS}{$DEFINE FORMS_V2}{$DEFINE SCRIPT_GUI}{$ENDIF}
 {$I SRL-T/osr.simba}
 {$I WaspLib/osr.simba}
 
 begin
-  Login.PlayerIndex     := 0;
-  StatsPayload.Username := '';
+  Login.PlayerIndex := 0;
+  StatsPayload.SetUsername('');
 end;
 
 type
@@ -46,7 +46,7 @@ begin
   inherited;
 end;
 
-procedure TScript.Init(MaxActions: Int32; MaxTime: Int64); override;
+procedure TScript.Init(maxActions: Int32; maxTime: Int64); override;
 begin
   inherited;
 
@@ -91,9 +91,9 @@ begin
   Exit(WAIT_STATE);
 end;
 
-procedure TScript.Run(MaxActions: Int32; MaxTime: Int64);
+procedure TScript.Run(maxActions: Int32; maxTime: Int64);
 begin
-  Self.Init(MaxActions, MaxTime);
+  Self.Init(maxActions, maxTime);
 
   repeat
     Self.State := Self.GetState();
@@ -127,35 +127,41 @@ type
     Selector: TLabeledCombobox;
   end;
 
-procedure TConfig.StartScript(Sender: TObject);
+procedure TConfig.StartScript(Sender: TObject); override;
 begin
-  Self.Init(Sender);
-
-  CurrentTask := ETask(Self.Selector.Combobox.getItemIndex);
-end;
-
-procedure TConfig.Setup(UseFood, UsePrayer, UseBank: Boolean); override;
-begin
+  CurrentTask := ETask(Self.Selector.getItemIndex());
   inherited;
-
-  with Selector do
-  begin
-    Init(Self.SSPanel.Panel);
-    SetCaption('Task:');
-    SetLeft(5);
-    SetTop(35);
-    SetWidth(200);
-    Combobox.setStyle(csDropDownList);
-    AddItem('Task to do');
-    SetItemIndex(Ord(CurrentTask));
-  end;
-
-  Self.WLPanel.StartButton.setOnClick(@Self.StartScript);
 end;
 
 procedure TConfig.Run(); override;
+var
+  tab: TTabSheet;
 begin
-  Self.Setup(False, False, True);
+  Self.Setup('Bank script');
+  Self.Start.setOnClick(@Self.StartScript);
+
+  Self.AddTab('Script Settings');
+  tab := Self.Tabs[High(Self.Tabs)];
+
+  Self.CreateAccountManager(tab);
+
+  with Self.Selector do
+  begin
+    Create(tab);
+    SetCaption('Item type:');
+    SetLeft(TControl.AdjustToDPI(40));
+    SetTop(TControl.AdjustToDPI(170));
+    SetStyle(csDropDownList);
+    AddItemArray(['Item1', 'Item2', 'Item3', 'Item4']);
+    SetItemIndex(2);
+  end;
+
+  Self.CreateVersionPanel(tab);
+
+  Self.CreateAntibanManager();
+  Self.CreateBankSettings();
+  Self.CreateWaspLibSettings();
+  Self.CreateAPISettings();
 
   inherited;
 end;
@@ -166,7 +172,7 @@ var
 
 begin
   {$IFDEF SCRIPT_GUI}
-  Sync(@Config.Run);
+  Config.Run();
   {$ENDIF}
   Script.Run(WLSettings.MaxActions, WLSettings.MaxTime);
 end.

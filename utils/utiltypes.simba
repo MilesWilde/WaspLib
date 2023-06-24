@@ -34,7 +34,8 @@ EWLBankLocation is a enumerator that contains all bank locations supported by Wa
     MOR_UL_REK_BANK,
     VARROCK,
     WINTERTODT_BANK,
-    SHILO_VILLAGE_BANK
+    SHILO_VILLAGE_BANK,
+    FOSSIL_ISLAND_BANK
   );
 
 function EWLBankLocation.GetString(i: Int32): String; static;
@@ -102,7 +103,10 @@ As in... the locations that have mapped coordinates!
     SLAYER_TOWER_GROUNDFLOOR,
     SMOKE_DEVIL_DUNGEON,
     SMOKE_DUNGEON,
-    STRONGHOLD_SLAYER_DUNGEON
+    STRONGHOLD_SLAYER_DUNGEON,
+    VARROCK_SEWERS,
+    ZANARIS,
+    DEATH_PLATEAU
   );
 
 function EWLCombatLocation.GetString(i: Int32): String; static;
@@ -141,8 +145,6 @@ begin
 end;
 
 
-
-
 type
 (*
 type ERSConsumable
@@ -169,7 +171,7 @@ Global FOOD_ARRAY constant.
 This array holds all types of consumable that heal the player.
 *)
   FOOD_ARRAY: TRSItemArray = [
-    'Shrimps', 'Cooked chicken', 'Cooked meat', 'Sardine', 'Edible seaweed', 'Bread', 'Herring',
+    'Shrimps', 'Cooked chicken', 'Cooked meat', 'Sardine', 'Bread', 'Herring',
     'Mackerel', 'Choc-ice', 'Trout', 'Cod', 'Pike', 'Roast beast meat',
     'Pineapple punch', 'Salmon', 'Tuna', 'Jug of wine', 'Rainbow fish',
     'Stew', 'Banana stew',
@@ -308,48 +310,29 @@ This array holds all types of trash items left over from eating/drinking certain
     'Empty cup'
   ];
 
-type
-  WLSettings = record
-  class var
-    MaxActions: Int32;
-    MaxTime:    Int64;
+type WLSettings = record class var
+  MaxActions: Int32;
+  MaxTime:    Int64;
 
-    Breaks: Boolean;
-    Sleep:
-      record
-        Enabled: Boolean;
-
-        Hour: String;
-        HourOverride: String;
-
-        Length: Double;
-        LengthOverride: Double;
-      end;
-    Antiban:
-      record
-        Enabled:  Boolean;
-
-        Camera:   Boolean;
-        Mouse:    Boolean;
-        Chat:     Boolean;
-        GameTabs: Boolean;
-        Bank:     Boolean;
-      end;
-
-    TextReport: Boolean;
-
-    RemoteInput:
-      record
-        Enabled: Boolean;
-        BlockInput: Boolean;
-        HUDReport: Boolean;
-        ScriptDebug: Boolean;
-      end;
-
-    Stats: Boolean;
-
-    BankLocation: EWLBankLocation;
+  Breaks, TextReport, Stats, SaveVideo: Boolean;
+  Sleep:
+  record
+    Enabled: Boolean;
+    Hour, HourOverride: String;
+    Length, LengthOverride: Single;
   end;
+  Antiban:
+  record
+    Enabled, Camera, Mouse, Chat, GameTabs, Bank: Boolean;
+  end;
+
+  RemoteInput:
+  record
+    Enabled, BlockInput, HUDReport, HUDDebug, HUDTransparent: Boolean;
+  end;
+
+  BankLocation: EWLBankLocation;
+end;
 
 begin
   WLSettings.MaxActions  := -1;
@@ -360,9 +343,10 @@ begin
   WLSettings.Antiban       := [True, True, True, True, True, True];
 
   WLSettings.TextReport  := True;
-  WLSettings.RemoteInput := [True, False, True, False];
+  WLSettings.RemoteInput := [True, False, True, False, False];
 
-  WLSettings.Stats       := True;
+  WLSettings.Stats     := True;
+  WLSettings.SaveVideo := False;
 
   WLSettings.BankLocation := GRAND_EXCHANGE_BANK
 end;

@@ -1,45 +1,45 @@
-# [11.5.0](https://github.com/Torwent/WaspLib/compare/v11.4.3...v11.5.0) (2023-01-30)
-
-
-### Features
-
-* add some methods to interact with the achievements tabtz ([b6f78a5](https://github.com/Torwent/WaspLib/commit/b6f78a59905b110f907e5af0c999ac95cafc763d))
-
-
-
-## [11.4.3](https://github.com/Torwent/WaspLib/compare/v11.4.2...v11.4.3) (2023-01-30)
+## [13.4.9](https://github.com/Torwent/WaspLib/compare/v13.4.8...v13.4.9) (2023-06-22)
 
 
 ### Bug Fixes
 
-* chat scrolling should now be fully working ([05c3b2a](https://github.com/Torwent/WaspLib/commit/05c3b2a5023818cde354af6ac207db4d718d47c6))
+* **RSNPCs:** ShiloVillageBankers ([da93221](https://github.com/Torwent/WaspLib/commit/da9322192cc142fc4ff14a6a413e6c6cfb814a52))
 
 
 
-## [11.4.2](https://github.com/Torwent/WaspLib/compare/v11.4.1...v11.4.2) (2023-01-29)
-
-
-### Bug Fixes
-
-* logic fix to interface scrolling ([068fd98](https://github.com/Torwent/WaspLib/commit/068fd980cf19f45c473ed741c44ed9336d05747e))
-
-
-
-## [11.4.1](https://github.com/Torwent/WaspLib/compare/v11.4.0...v11.4.1) (2023-01-29)
+## [13.4.8](https://github.com/Torwent/WaspLib/compare/v13.4.7...v13.4.8) (2023-06-22)
 
 
 ### Bug Fixes
 
-* several fixes, read notes. ([653cfda](https://github.com/Torwent/WaspLib/commit/653cfdabf1e27b14bb318995fe5dbcc04c09072d))
+* read notes ([0028eee](https://github.com/Torwent/WaspLib/commit/0028eee2b0d62a696b1fbe85ed2bf9f3000abb10))
 
 
 
-# [11.4.0](https://github.com/Torwent/WaspLib/compare/v11.3.6...v11.4.0) (2023-01-29)
+## [13.4.7](https://github.com/Torwent/WaspLib/compare/v13.4.6...v13.4.7) (2023-06-21)
 
 
-### Features
+### Bug Fixes
 
-* added some new antiban stuff ([a6add78](https://github.com/Torwent/WaspLib/commit/a6add7834fbb663fae05cf8d656e7fb0f0ec371f))
+* **forms:** read notes ([b779a1a](https://github.com/Torwent/WaspLib/commit/b779a1a8f13e2916a583ac6ad59cdf53f84b81f3))
+
+
+
+## [13.4.6](https://github.com/Torwent/WaspLib/compare/v13.4.5...v13.4.6) (2023-06-18)
+
+
+### Bug Fixes
+
+* **store:** store open shouldn't affect inventory anymore ([700cc2d](https://github.com/Torwent/WaspLib/commit/700cc2d89404777766b3835f45a2d84fcfbe6ea7))
+
+
+
+## [13.4.5](https://github.com/Torwent/WaspLib/compare/v13.4.4...v13.4.5) (2023-06-16)
+
+
+### Bug Fixes
+
+* minor adjustments to BF objects ([4de4c3f](https://github.com/Torwent/WaspLib/commit/4de4c3f7919453bc34493f0db67742df93e91327))
 
 
 

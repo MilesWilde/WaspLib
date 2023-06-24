@@ -104,9 +104,7 @@ begin
 
   Result := (Self.GetSetting(ERSXPBarSetupDropDown.DURATION) = 'Permanent')
              and
-            (Self.GetSetting(ERSXPBarSetupDropDown.COUNTER) = 'Total XP')
-             and
-            (Self.GetSetting(ERSXPBarSetupDropDown.PROGRESS_BAR) = 'Off');
+            (Self.GetSetting(ERSXPBarSetupDropDown.COUNTER) = 'Total XP');
   WL.XP.IsSetup := Result;
 
   if Result then
@@ -114,8 +112,12 @@ begin
 end;
 
 procedure TRSXPBarSetup.Fix();
+var
+  i: Int32;
 begin
-  if not Self.Open then
+  Self.DebugLn('Your XPBar seems to not be properly setup.');
+  Self.DebugLn('If you see scripts constantly trying to open it you should manually fix it.');
+  if not Self.Open() then
     Exit;
 
   repeat
@@ -123,13 +125,16 @@ begin
     Wait(50, 200);
     Self.ChangeDropDown(ERSXPBarSetupDropDown.COUNTER, 'Total XP');
     Wait(50, 200);
-    Self.ChangeDropDown(ERSXPBarSetupDropDown.PROGRESS_BAR, 'Off');
-    Wait(50, 200);
-    WriteLn 'Stuck here';
-  until not Self.IsOpen or Self.ProperSettings;
 
-  WriteLn 'DONE LOOPING';
-  Self.Close;
+    case i of
+      0..7: ;
+      8..10: WriteLn 'Stuck in TRSXPBarSetup.Fix()';
+      else TerminateScript('Couldn''t fix the XPBar please fix it manually.');
+    end;
+    Inc(i);
+  until not Self.IsOpen() or Self.ProperSettings();
+
+  Self.Close();
 end;
 
 

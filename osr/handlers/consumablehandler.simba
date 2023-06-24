@@ -15,6 +15,16 @@ type
 (*
 type TConsumableHandler
 ~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal::
+  TConsumableHandler = record(TSRLBaseRecord)
+    ConsumableType: ERSConsumable;
+    ConsumableArray: TRSConsumableArray;
+    Amount: Int32;
+    MinInvPoints: Int32;
+    Timer: TCountDown;
+    ConsumableDelay: TCountDown;
+    IsSetup: Boolean;
+  end;
 
 Consumable handler is the record responsible to handle `TRSConsumables <https://torwent.github.io/WaspLib/consumables.html>`_.
 This will handle caching all found consumables to this point, bank withdraw amounts, timer if the last consumable had a timer, etc.
@@ -35,6 +45,7 @@ This will handle caching all found consumables to this point, bank withdraw amou
 (*
 type PConsumableHandler
 ~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: PConsumableHandler = ^TConsumableHandler;
 
 Wrapper type of a TConsumableHandler pointer.
 *)
@@ -52,18 +63,18 @@ Example
 
   FoodHandler.Setup('Shark');
 *)
-function TConsumableHandler.Setup(Item: TRSItem): TRSConsumable;
+function TConsumableHandler.Setup(item: TRSItem): TRSConsumable;
 begin
-  Result.Item := Item;
+  Result.Item := item;
 
   case Self.ConsumableType of
-    ERSConsumable.FOOD_CONSUMABLE:      Result.SetupFood;
-    ERSConsumable.PRAYER_CONSUMABLE:    Result.SetupPrayer;
-    ERSConsumable.ENERGY_CONSUMABLE:    Result.SetupEnergy;
-    ERSConsumable.POISON_CONSUMABLE:    Result.SetupAntiPoison;
-    ERSConsumable.VENOM_CONSUMABLE:     Result.SetupAntiVenom;
-    ERSConsumable.ANTI_FIRE_CONSUMABLE: Result.SetupAntiFire;
-    ERSConsumable.BOOST_CONSUMABLE:     Result.SetupBoost;
+    ERSConsumable.FOOD_CONSUMABLE:      Result.SetupFood();
+    ERSConsumable.PRAYER_CONSUMABLE:    Result.SetupPrayer();
+    ERSConsumable.ENERGY_CONSUMABLE:    Result.SetupEnergy();
+    ERSConsumable.POISON_CONSUMABLE:    Result.SetupAntiPoison();
+    ERSConsumable.VENOM_CONSUMABLE:     Result.SetupAntiVenom();
+    ERSConsumable.ANTI_FIRE_CONSUMABLE: Result.SetupAntiFire();
+    ERSConsumable.BOOST_CONSUMABLE:     Result.SetupBoost();
   end;
 end;
 
@@ -345,10 +356,11 @@ end;
 
 
 (*
-Inventory.Consume()
-~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSInventory.Consume(consumableType: ERSConsumable; out Slots: TIntegerArray): Boolean;
-.. pascal:: function TRSInventory.Consume(consumableType: ERSConsumable): Boolean; overload;
+Inventory.Consume
+~~~~~~~~~~~~~~~~~
+.. pascal::
+  function TRSInventory.Consume(consumableType: ERSConsumable; out Slots: TIntegerArray): Boolean;
+  function TRSInventory.Consume(consumableType: ERSConsumable): Boolean; overload;
 
 Methods used to consume consumables.
 
@@ -385,7 +397,7 @@ begin
 
   if not Antiban.BioDice(EBioBehavior.CONSUME_IN_BANK) and
      MainScreen.HasInterface() then
-     MainScreen.CloseInterface;
+     MainScreen.CloseInterface();
 
   if (consumableHandler^.ConsumableDelay.Length > 0) then
     while not consumableHandler^.ConsumableDelay.IsFinished() do
@@ -450,9 +462,9 @@ end;
 
 function TRSInventory.Consume(consumableType: ERSConsumable): Boolean; overload;
 var
-  Slots: TIntegerArray;
+  slots: TIntegerArray;
 begin
-  Result := Self.Consume(consumableType, Slots);
+  Result := Self.Consume(consumableType, slots);
 end;
 
 
@@ -691,10 +703,11 @@ Example
 *)
 function TRSBank.WithdrawConsumable(consumableType: ERSConsumable): Boolean;
 var
-  consumableHandler: PConsumableHandler := TConsumableHandler.GetHandler(consumableType);
+  consumableHandler: PConsumableHandler;
   withdrawAmount: Int32;
   consumable: TRSConsumable;
 begin
+  consumableHandler := TConsumableHandler.GetHandler(consumableType);
   if not Self.FindConsumable(consumableType, Consumable) then
   begin
     if not consumableHandler^.IsSetup then
@@ -720,6 +733,96 @@ begin
 end;
 
 //overrides
+{$IFDEF FORMS_V2}
+function TScriptForm.CreateConsumableSettings(consumableType: ERSConsumable): TTabSheet; override;
+  type TScriptForm = TScriptForm;
+
+  procedure TScriptForm._FoodOnChange(sender: TObject);
+  var
+    combobox: TComboBox;
+    i: Int32;
+  begin
+    combobox := sender;
+    i := combobox.GetItemIndex();
+    if i > -1 then
+      FoodHandler.Setup(FOOD_ARRAY[i]);
+  end;
+
+  procedure TScriptForm._PrayerOnChange(sender: TObject);
+  var
+    combobox: TComboBox;
+    i: Int32;
+  begin
+    combobox := sender;
+    i := combobox.GetItemIndex();
+    if i > -1 then
+      PrayerHandler.Setup(PRAYER_ARRAY[i]);
+  end;
+
+  procedure TScriptForm._EnergyOnChange(sender: TObject);
+  var
+    combobox: TComboBox;
+    i: Int32;
+  begin
+    combobox := sender;
+    i := combobox.GetItemIndex();
+    if i > -1 then
+      EnergyHandler.Setup(ENERGY_ARRAY[i]);
+  end;
+
+  procedure TScriptForm._BoostOnChange(sender: TObject);
+  var
+    combobox: TComboBox;
+    i: Int32;
+  begin
+    combobox := sender;
+    i := combobox.GetItemIndex();
+    if i > -1 then
+      BoostHandler.Setup(BOOST_ARRAY[i]);
+  end;
+
+var
+  name: String;
+  event: TNotifyEvent;
+  combobox: TComboBox;
+begin
+  Result := inherited();
+
+  case consumableType of
+    ERSConsumable.FOOD_CONSUMABLE:
+      begin
+        name := 'cm_food_selector_combobox';
+        event := @Self._FoodOnChange;
+      end;
+
+    ERSConsumable.PRAYER_CONSUMABLE:
+      begin
+        name := 'cm_prayer_selector_combobox';
+        event := @Self._PrayerOnChange;
+      end;
+
+    ERSConsumable.ENERGY_CONSUMABLE:
+      begin
+        name := 'cm_energy_selector_combobox';
+        event := @Self._EnergyOnChange;
+      end;
+
+    ERSConsumable.BOOST_CONSUMABLE:
+      begin
+        name := 'cm_boost_selector_combobox';
+        event := @Self._BoostOnChange;
+      end;
+
+    else Exit;
+  end;
+
+  combobox := Result.GetChild(name);
+  if combobox <> nil then
+    combobox.SetOnChange(event);
+end;
+
+
+{$ELSE}
 procedure TConsumablePanel.Init();
 var
   i: Int32;
@@ -745,4 +848,4 @@ begin
   Self.WLPanel.PrayerPanel.Init();
   inherited;
 end;
-
+{$ENDIF}

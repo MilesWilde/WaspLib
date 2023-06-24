@@ -16,8 +16,10 @@ begin
   str := ' Runtime       : ' + SRL.MsToTime(ProgressReport.PTimeRunning^.ElapsedTime, Time_Short).Trim();
   ProgressReport.ProgressArray[1] := str;
 
-  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.ScriptDebug then
+  {$IFNDEF SRL_DISABLE_REMOTEINPUT}
+  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.HUDDebug then
     ProgressReport.Update(ProgressReport.ProgressArray);
+  {$ENDIF}
 end;
 
 procedure OnBreakingTask(Task: PBreakTask; var countdown: TCountdown);
@@ -32,8 +34,10 @@ begin
   str := ' Runtime       : ' + SRL.MsToTime(ProgressReport.PTimeRunning^.ElapsedTime, Time_Short).Trim();
   ProgressReport.ProgressArray[1] := str;
 
-  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.ScriptDebug then
+  {$IFNDEF SRL_DISABLE_REMOTEINPUT}
+  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.HUDDebug then
     ProgressReport.Update(ProgressReport.ProgressArray);
+  {$ENDIF}
 end;
 
 procedure OnSleepingTask(Task: PSleepTask; var Countdown: TCountdown);
@@ -48,8 +52,10 @@ begin
   str := ' Runtime       : ' + SRL.MsToTime(ProgressReport.PTimeRunning^.ElapsedTime, Time_Short).Trim();
   ProgressReport.ProgressArray[1] := str;
 
-  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.ScriptDebug then
+  {$IFNDEF SRL_DISABLE_REMOTEINPUT}
+  if WLSettings.RemoteInput.Enabled and WLSettings.RemoteInput.HUDReport and not WLSettings.RemoteInput.HUDDebug then
     ProgressReport.Update(ProgressReport.ProgressArray);
+  {$ENDIF}
 end;
 {$H+}
 
@@ -150,7 +156,7 @@ end;
 // GameTabs antibans
 procedure TAntiban.RandomTab(); override;
 begin
-  Self.DebugLn('Random Tab');
+  Self.DebugLn('Random GameTab');
 
   if Random < 0.80 then
   begin
@@ -177,13 +183,52 @@ end;
 
 procedure TAntiban.ToggleTab();
 var
-  currentTab: ERSGameTab := GameTabs.GetCurrentTab();
+  currentTab: ERSGameTab;
 begin
-  Self.DebugLn('Toggling game tabs');
+  currentTab := GameTabs.GetCurrentTab();
+  Self.DebugLn('Toggling GameTabs');
   Self.RandomTab();
   BioWait(500, 7000, wdLeft);
   GameTabs.Open(currentTab);
 end;
+
+
+procedure TAntiban.MoveItems(items: TRSItemArray);
+var
+  currentSlots, newSlots, tmp: TIntegerArray;
+  i: Int32;
+begin
+  Self.DebugLn('Moving items');
+
+  if Inventory.GetSelectedSlot() > -1 then
+  begin
+    Inventory.SetSelectedSlot(-1);
+    Wait(50, 250, wdLeft);
+  end;
+
+  currentSlots := Inventory.FindItems(items);
+  if currentSlots = [] then
+    Exit;
+
+  newSlots := Inventory.RandomPattern();
+
+  SetLength(newSlots, Length(currentSlots));
+  WriteLn newSlots;
+  tmp := currentSlots.Intersection(newSlots);
+  WriteLn tmp;
+  currentSlots := currentSlots.Difference(tmp);
+  currentSlots := currentSlots.Sorted();
+  WriteLn currentSlots;
+  newSlots := newSlots.Difference(tmp);
+
+  WriteLn newSlots;
+  for i := 0 to High(currentSlots) do
+  begin
+    Inventory.Drag(currentSlots[i], newSlots[i]);
+    Wait(50, 250, wdLeft);
+  end;
+end;
+
 
 procedure TAntiban.CheckCharges();
 const
@@ -321,12 +366,48 @@ begin
   Self.OpenSkill(Self.Skills[Random(Length(Self.Skills))], RandomLeft(1000, 10000), SRL.Dice(50));
 end;
 
+procedure TAntiban.RandomAchievementTab();
+begin
+  Self.DebugLn('Random Achievement Tab');
+  Achievements.OpenTab(ERSAchievementTab(Random(0, Ord(FAVOUR))));
+end;
+
+procedure TAntiban.ToggleAchievementTabs();
+var
+  currentTab: ERSAchievementTab;
+  time: Int32;
+  done: Int64;
+begin
+  currentTab := Achievements.GetCurrentTab();
+  Self.DebugLn('Toggling Achievement tabs');
+  Self.RandomAchievementTab();
+
+  time := Round(SRL.TruncatedGauss(500*BioHash, 7000*BioHash));
+  done := GetTickCount() + time;
+
+  if Self.BioDice(50) then
+  begin
+    case Achievements.GetCurrentTab() of
+      QUESTS, DIARIES:
+        Achievements.RandomScroll(Achievements.GetScrollPosition() < 50);
+    end;
+  end;
+
+  repeat
+    Wait(50, 150);
+  until GetTickCount() > done;
+
+  Achievements.OpenTab(currentTab);
+end;
+
+
 procedure TAntiban.RandomGameTabTask();
 begin
-  case Random(10) of
-    0..3: Self.RandomTab;
-    4..9: Self.ToggleTab;
-    10:   Self.CheckCharges;
+  case Random(13) of
+    0..3:   Self.RandomTab();
+    4..9:   Self.ToggleTab();
+    10..11: Self.ToggleAchievementTabs();
+    12:     Self.CheckCharges();
   end;
 end;
 
@@ -369,7 +450,7 @@ end;
 // Chatbox antibans
 procedure TAntiban.ChatScrolling();
 begin
-  Self.DebugLn('[RND] Random scrolling on chat');
+  Self.DebugLn('Random scrolling on chat');
   Chat.RandomScroll(False);
   BioWait(5000, 8000);
   Chat.SetScrollPosition(100);
@@ -379,7 +460,7 @@ procedure TAntiban.RandomChatButton();
 var
   ChatButton: ERSChatButton := ERSChatButton(Random(0, (Length(ERSChatButton) - 2)));
 begin
-  Self.DebugLn('[RND] Opening ' + ToStr(ChatButton) + ' chat button');
+  Self.DebugLn('Opening ' + ToStr(ChatButton) + ' chat button');
 
   ChatButtons.Open(ChatButton);
 end;
@@ -388,7 +469,7 @@ procedure TAntiban.ToggleChatButton();
 var
   CurrentButton: ERSChatButton := ChatButtons.GetActive;
 begin
-  Self.DebugLn('[RND] Toggling chat buttons');
+  Self.DebugLn('Toggling chat buttons');
   Self.RandomChatButton;
   BioWait(3000, 5000);
   ChatButtons.Open(CurrentButton);
@@ -408,7 +489,7 @@ begin
     ERSChatButton.TRADE_CHAT:   RandomState := ERSChatButtonState(Random(1, 3));
   end;
 
-  Self.DebugLn('[RND] Changing ' + ToStr(RandomButton) + ' state to ' + ToStr(RandomState));
+  Self.DebugLn('Changing ' + ToStr(RandomButton) + ' state to ' + ToStr(RandomState));
   ChatButtons.ChangeState(RandomButton, RandomState);
 end;
 
@@ -428,7 +509,7 @@ begin
   if not Bank.IsOpen then
     Exit;
 
-  Self.DebugLn('[RND] Random scrolling on bank');
+  Self.DebugLn('Random scrolling on bank');
   //Chatbox.RandomScroll;
 end;
 
@@ -440,7 +521,7 @@ begin
     Exit;
 
   tab := Random(Bank.CountTabs());
-  Self.DebugLn('[RND] Opening bank tab ' + ToStr(tab));
+  Self.DebugLn('Opening bank tab ' + ToStr(tab));
   Bank.OpenTab(tab);
 end;
 
@@ -451,7 +532,7 @@ begin
   if not Bank.IsOpen() then
     Exit;
 
-  Self.DebugLn('[RND] Toggling bank tabs');
+  Self.DebugLn('Toggling bank tabs');
   currentTab := Bank.GetCurrentTab();
   Self.RandomBankTab();
   BioWait(3000, 4000, wdLeft);
@@ -469,7 +550,7 @@ begin
 
   RandomButton := ERSBankButton(Random(2, 10));
   BankButton := Bank.GetButton(RandomButton);
-  Self.DebugLn('[RND] Clicking ' + ToStr(RandomButton) + ' bank button');
+  Self.DebugLn('Clicking ' + ToStr(RandomButton) + ' bank button');
   BankButton.Enable;
 end;
 *)
@@ -534,7 +615,7 @@ begin
 
   Self.SetSleepHour();
   Self.SetSleepLength();
-  Self.AddSleep(WLSettings.Sleep.Hour, WLSettings.Sleep.Length, 0.1, (0.8 + BioHash));
+  Self.AddSleep(WLSettings.Sleep.Hour, WLSettings.Sleep.Length, 0.1, 0.8 + BioHash);
 
   Self.OnSleeping := @OnSleepingTask;
 end;
@@ -595,7 +676,7 @@ begin
   if WLSettings.Sleep.Enabled then
     Self.SetupSleep();
 
-  if not InRange(Options.GetZoomLevel(), Self.MinZoom, Self.MaxZoom) then
+  if not InRange(MM2MS.GetZoomLevel(), Self.MinZoom, Self.MaxZoom) then
     Self.AdjustZoom();
 
   //override me to add stuff!

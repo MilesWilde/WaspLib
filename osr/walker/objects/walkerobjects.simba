@@ -48,6 +48,32 @@ const
   USE_ASYNC_HOVER: Boolean = False;
 
 type
+(*
+type TRSWalkerObject
+~~~~~~~~~~~~~~~~~~~~
+.. pascal::
+  TRSWalkerObject = record
+    Filter: record
+      Walker:     Boolean;
+      MinimapDot: Boolean;
+      Finder:     Boolean;
+      UpText:     Boolean;
+      Skip:       Boolean;
+    end;
+    ShapeArray: TRSMainScreenShapeArray;
+    Coordinates: TPointArray;
+    Finder: TRSObjectFinder;
+    UpText: TStringArray;
+    ActionUpText: TStringArray;
+  class var
+    CurrentUpText: TStringArray;
+    RedClicked: Boolean;
+    Walker: PRSWalker;
+    Regions: TBoxArray;
+  end;
+
+Parent record of all TRSWalkerObjects.
+*)
   TRSWalkerObject = record
     Filter: record
       Walker:     Boolean;
@@ -85,6 +111,7 @@ TRSWalkerObjects coordinates that are outside our TRSWalkerObject.Regions boxes 
 procedure TRSWalker.InternalSetup(); override;
 begin
   inherited;
+
   TRSWalkerObject.Walker := @Self;
   TRSWalkerObject.Regions := [[0, 0, Self.Map.Map.getWidth()-1, Self.Map.Map.getHeight()-1]];
 end;
@@ -185,21 +212,31 @@ begin
     Self.Enabled := False;
 end;
 
+(*
+TRSWalkerObject._Setup
+~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: procedure TRSWalkerObject._Setup();
+
+Base internal TRSWalkerObject setup method. You probably won't need to call this directly, it's called by the next setup methods automatically.
+*)
+procedure TRSWalkerObject._Setup();
+begin
+  Self.Filter.MinimapDot := True;
+  Self.Filter.Finder     := True;
+  Self.Filter.UpText     := True;
+end;
 
 (*
 TRSWalkerObject.Setup
 ~~~~~~~~~~~~~~~~~~~~~
-.. pascal:: procedure TRSWalkerObject.Setup();
-.. pascal:: procedure TRSWalkerObject.Setup(coordinates: TPointArray); overload;
-.. pascal:: procedure TRSWalkerObject.Setup(upText: TStringArray); overload;
+.. pascal::
+  procedure TRSWalkerObject.Setup(coordinates: TPointArray);
+  procedure TRSWalkerObject.Setup(upText: TStringArray); overload;
 
-TRSWalkerObject setup methods. You usually need to call 2 of this:
-- The version with coordinates
-- The version with uptext
+TRSWalkerObject setup methods. You usually need to call of this.
 
-The version without parameters is automatically called by the one that takes in the uptext.
-
-They should also be called in that order because `TRSWalkerObject.Setup(coordinates: TPointArray)` is where
+The method that takes in coordinates should be called first.
+That is because `TRSWalkerObject.Setup(coordinates: TPointArray)` is where
 we decide if TRSWalkerObject.Filter.Skip is going to be true or not.
 
 Keep in mind if you don't use a TRSWalker in your script and want to use TRSWalkerObjects, you will need to manually setup them in your script
@@ -229,20 +266,13 @@ Example
     obj.Setup(['My', 'uptext']);
   end;
 *)
-procedure TRSWalkerObject.Setup();
-begin
-  Self.Filter.MinimapDot := True;
-  Self.Filter.Finder     := True;
-  Self.Filter.UpText     := True;
-end;
-
-procedure TRSWalkerObject.Setup(coordinates: TPointArray); overload;
+procedure TRSWalkerObject.Setup(coordinates: TPointArray);
 begin
   Self.Filter.Skip := TRSWalkerObject.Walker = nil;
   if Self.Filter.Skip then
     Exit;
 
-  coordinates := Self.Regions.Filter(coordinates);
+  coordinates := TRSWalkerObject.Regions.Filter(coordinates);
 
   Self.Filter.Skip := coordinates = [];
   if Self.Filter.Skip then
@@ -258,7 +288,7 @@ begin
   if Self.Filter.Skip then
     Exit;
 
-  Self.Setup();
+  Self._Setup();
 
   Self.UpText := upText;
 
@@ -270,8 +300,9 @@ end;
 (*
 TRSWalkerObject.GetCuboidArray
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSWalkerObject.GetCuboidArrayEx(out floorTiles, roofTiles: TRectArray): TCuboidArray;
-.. pascal:: function TRSWalkerObject.GetCuboidArray(): TCuboidArray;
+.. pascal::
+  function TRSWalkerObject.GetCuboidArrayEx(out floorTiles, roofTiles: TRectArray): TCuboidArray;
+  function TRSWalkerObject.GetCuboidArray(): TCuboidArray;
 
 Internal TRSWalkerObject method responsible for returning a TCuboidArray of our target on the 3D world (on mainscreen and outside of it).
 You will probably never need to use this directly.
@@ -295,8 +326,13 @@ begin
 end;
 
 function TRSWalkerObject.GetCuboidArray(): TCuboidArray;
+var
+  me: TPoint;
+  coordinates: TPointArray;
 begin
-  Result := TRSWalkerObject.Walker^.GetCuboidArrayMS(TRSWalkerObject.Walker^.GetMyPos(), Self.Coordinates, Self.ShapeArray, [0, 0]);
+  me := TRSWalkerObject.Walker^.GetMyPos();
+  coordinates := Self.Coordinates.Sorted(me);
+  Result := TRSWalkerObject.Walker^.GetCuboidArrayMS(me, coordinates, Self.ShapeArray, [0, 0]);
 end;
 
 (*
@@ -318,6 +354,7 @@ begin
     tempFinder := Self.Finder.Unlimited();
 
   cuboidArray := MainScreen.Filter(cuboidArray);
+
   for i := 0 to High(cuboidArray) do
   begin
     if Self.Filter.Finder then
@@ -327,15 +364,14 @@ begin
         Continue;
 
       tpa := cuboidArray[i].Filter(tpa);
-      if tpa = [] then
-        Continue;
-
-      Result += tpa;
+      if tpa <> [] then
+        Result += tpa;
       Continue;
     end;
 
     tpa := cuboidArray[i].Connect().ShapeFill();
-    Result += tpa;
+    if tpa <> [] then
+      Result += tpa;
   end;
 end;
 
@@ -367,6 +403,91 @@ begin
 end;
 
 
+(*
+TRSWalkerObject._UpTextCheck
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSWalkerObject._UpTextCheck(out shouldExit: Boolean): Boolean;
+
+Internal TRSWalkerObject helper method that is used by all hovering methods.
+You probably don't need to use this directly.
+*)
+function TRSWalkerObject._UpTextCheck(out shouldExit: Boolean): Boolean;
+var
+  strArray: TStringArray;
+  upText: String;
+begin
+  shouldExit := True;
+
+  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
+    Exit;
+
+  if Self.Filter.UpText then
+  begin
+    strArray := Self.UpText;
+    if Self.ActionUpText <> [] then
+      strArray := Self.ActionUpText;
+
+    if TRSWalkerObject.CurrentUpText <> strArray then
+      TRSWalkerObject.CurrentUpText := strArray;
+  end;
+
+  upText := MainScreen.GetUpText();
+
+  if ('>' in upText) and not TRSWalkerObject.CurrentUpText.Contains('Use') then
+  begin
+    ChooseOption.Select('Cancel');
+    Exit;
+  end;
+
+  if Self.Filter.UpText and (Self.UpText in upText) then
+    Exit(True);
+
+  shouldExit := False;
+end;
+
+(*
+TRSWalkerObject._WalkUpTextCheck
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSWalkerObject._WalkUpTextCheck(out shouldExit: Boolean): Boolean;
+
+Internal TRSWalkerObject helper method that is used by all walking hover methods.
+You probably don't need to use this directly.
+*)
+function TRSWalkerObject._WalkUpTextCheck(out shouldExit: Boolean): Boolean;
+var
+  upText: String;
+  strArray: TStringArray;
+begin
+  shouldExit := True;
+
+  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
+    Exit;
+
+
+  if Self.Filter.UpText then
+  begin
+    strArray := Self.UpText;
+    if Self.ActionUpText <> [] then
+      strArray := Self.ActionUpText;
+
+    if TRSWalkerObject.CurrentUpText <> strArray then
+      TRSWalkerObject.CurrentUpText := strArray;
+  end;
+
+  upText := MainScreen.GetUpText();
+
+  if ('>' in upText) and not TRSWalkerObject.CurrentUpText.Contains('Use') then
+  begin
+    ChooseOption.Select('Cancel');
+    Exit;
+  end;
+
+  if TRSWalkerObject.RedClicked or (Self.Filter.UpText and (Self.UpText in upText)) then
+    Exit(True);
+
+  shouldExit := False;
+end;
+
 
 (*
 TRSWalkerObject._ClickHelper
@@ -380,12 +501,12 @@ This is what's responsible for deciding if we click a target we are hovering or 
 *)
 function TRSWalkerObject._ClickHelper(leftClick: Boolean): Boolean;
 begin
-  if Self.CurrentUpText <> [] then
-    Self.CurrentUpText := [];
+  if TRSWalkerObject.CurrentUpText <> [] then
+    TRSWalkerObject.CurrentUpText := [];
 
-  if Self.RedClicked then
+  if TRSWalkerObject.RedClicked then
   begin
-    Self.RedClicked := False;
+    TRSWalkerObject.RedClicked := False;
     Exit(True);
   end;
 
@@ -394,7 +515,7 @@ begin
     if Self.Filter.UpText and ChooseOption.Select(Self.UpText) then
       Exit(True);
     ChooseOption.Close();
-    Exit(False);
+    Exit;
   end;
 
   if leftClick then
@@ -424,12 +545,12 @@ This is what is responsible for deciding if we just left click a target we are h
 *)
 function TRSWalkerObject._SelectHelper(action: TStringArray): Boolean;
 begin
-  if Self.CurrentUpText <> [] then
-    Self.CurrentUpText := [];
+  if TRSWalkerObject.CurrentUpText <> [] then
+    TRSWalkerObject.CurrentUpText := [];
 
-  if Self.RedClicked then
+  if TRSWalkerObject.RedClicked then
   begin
-    Self.RedClicked := False;
+    TRSWalkerObject.RedClicked := False;
     Exit(True);
   end;
 
@@ -515,9 +636,10 @@ end;
 (*
 TRSObject.Setup
 ~~~~~~~~~~~~~~~
-.. pascal:: procedure TRSObject.Setup(shape: Vector3; coordinates: TPointArray); overload;
-.. pascal:: procedure TRSObject.Setup(size, height: Double; coordinates: TPointArray); overload;
-.. pascal:: procedure TRSObject.Setup(height: Double; coordinates: TPointArray); overload;
+.. pascal::
+  procedure TRSObject.SetupEx(shape: Vector3; coordinates: TPointArray); overload;
+  procedure TRSObject.Setup(size, height: Double; coordinates: TPointArray); overload;
+  procedure TRSObject.Setup(height: Double; coordinates: TPointArray); overload;
 
 All this extend the basic `TRSWalkerObject.Setup(coordinates: TPointArray)`.
 For TRSObjects this are the methods that should be used for setting them up initially.
@@ -535,7 +657,7 @@ In this case, **shape.X** and **shape.Y** would be both equal to **size**.
 Lastly, TRSObject.Setup(height: Double; coordinates: TPointArray) also calls TRSObject.Setup(shape: Vector3; coordinates: TPointArray)
 and sets the **shape.X** and **shape.Y** to 1.
 *)
-procedure TRSObject.Setup(shape: Vector3; coordinates: TPointArray); overload;
+procedure TRSObject.SetupEx(shape: Vector3; coordinates: TPointArray); overload;
 begin
   Self.Setup(coordinates);
 
@@ -547,7 +669,7 @@ end;
 
 procedure TRSObject.Setup(size, height: Double; coordinates: TPointArray); overload;
 begin
-  Self.Setup([size, size, height], coordinates);
+  Self.SetupEx([size, size, height], coordinates);
 end;
 
 procedure TRSObject.Setup(height: Double; coordinates: TPointArray); overload;
@@ -557,23 +679,16 @@ end;
 
 
 (*
-TRSObject.Find
-~~~~~~~~~~~~~~
-.. pascal:: function TRSObject.Find(out floorTiles, roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
-.. pascal:: function TRSObject.Find(out atpa: T2DPointArray): Boolean; overload;
-.. pascal:: function TRSObject.Find(): Boolean; overload;
+TRSObject.FindEx
+~~~~~~~~~~~~~~~~
+.. pascal:: function TRSObject.FindEx(out floorTiles, roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
 
-TRSObject methods used to find a TRSObject. If found returns true, if not returns false.
-The first one is mostly meant for debugging and you should avoid calling it instead of the last 2 because it's slower due to gathering more data for the user.
-This is what is used in `Debug(TRSObject)`.
+TRSObject method used to find a TRSObject. If found returns true, if not returns false.
+This "extended" method in particular is only meant for debugging and should be avoided outside of development/debugging.
+This is what is used when you call `Debug(TRSObject)`.
 
-Example
--------
-
-  WriteLn RSObjects.GEBank.Find(atpa); //Be in ge and with a walker setup there.
-  Debug(atpa);
 *)
-function TRSObject.Find(out floorTiles, roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
+function TRSObject.FindEx(out floorTiles, roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
 begin
   MM2MS.SetupZoom();
 
@@ -582,7 +697,7 @@ begin
     cuboidArray := Self.GetCuboidArrayEx(floorTiles, roofTiles);
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     atpa := Self.FindOnMainScreen(cuboidArray);
   end
@@ -593,7 +708,21 @@ begin
   Result := atpa <> [];
 end;
 
-//since we don't want to return as many parameters on this one we can improve it's performance slightly.
+(*
+TRSObject.Find
+~~~~~~~~~~~~~~
+.. pascal::
+  function TRSObject.Find(out atpa: T2DPointArray): Boolean; overload;
+  function TRSObject.Find(): Boolean; overload;
+
+TRSObject methods used to find a TRSObject. If found returns true, if not returns false.
+
+Example
+-------
+
+  WriteLn RSObjects.GEBank.Find(atpa); //Be in ge and with a walker setup there.
+  Debug(atpa);
+*)
 function TRSObject.Find(out atpa: T2DPointArray): Boolean; overload;
 var
   cuboidArray: TCuboidArray;
@@ -605,7 +734,7 @@ begin
     cuboidArray := Self.GetCuboidArray();
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     atpa := Self.FindOnMainScreen(cuboidArray);
   end
@@ -618,7 +747,7 @@ begin
   Result := atpa <> [];
 end;
 
-function TRSObject.Find(): Boolean; overload;
+function TRSObject.IsVisible(): Boolean; overload;
 var
   cuboidArray: TCuboidArray;
 begin
@@ -629,7 +758,7 @@ begin
     cuboidArray := Self.GetCuboidArray();
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     Exit(Self.OnMainScreen(cuboidArray));
   end;
@@ -661,7 +790,7 @@ var
   atpa: T2DPointArray;
   i: Int32;
 begin
-  Self.Find(floorTiles, roofTiles, cuboidArray, atpa);
+  Self.FindEx(floorTiles, roofTiles, cuboidArray, atpa);
 
   bitmap.DrawATPA(atpa);
   if atpa <> [] then
@@ -697,8 +826,8 @@ begin
   Self.Draw(Bitmap);
   Bitmap.DrawBoxFilled(Chat.GetDisplayNameBox(), False, $00FFFF);
 
-  ForceDirectories('Screenshots\RSObjects');
-  filePath := 'Screenshots\RSObjects\Debug-' + ToStr(GetTickCount) + '.png';
+  filePath := GetScreenshotPath('TRSObject');
+
   Bitmap.SaveToFile(filePath);
   WriteLn('Send ', filePath, ' to Torwent on discord!');
   Bitmap.Debug();
@@ -712,21 +841,21 @@ end;
 (*
 TRSObject._AsyncHoverHelper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSObject._AsyncHoverHelper(): Boolean;
-.. pascal:: function TRSObject._AsyncHoverHelper(attempts: Int32): Boolean; overload;
+.. pascal::
+  function TRSObject._AsyncHoverHelper(): Boolean;
+  function TRSObject._AsyncHoverHelper(attempts: Int32): Boolean; overload;
 
 Internal helper methods used to hover a TRSObject target asynchronously.
 You should not use this directly.
 *)
 function TRSObject._AsyncHoverHelper(): Boolean;
 var
+  shouldExit: Boolean;
   atpa: T2DPointArray;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   if Self.Find(atpa) then
   begin
@@ -748,16 +877,15 @@ function TRSObject._AsyncHoverHelper(attempts: Int32): Boolean; overload;
   end;
 
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -805,16 +933,15 @@ You should not use this directly.
 *)
 function TRSObject._HoverHelper(attempts: Int32): Boolean;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -866,30 +993,18 @@ function TRSObject._AsyncWalkHoverHelper(attempts: Int32): Boolean;
     Result := atpa.RandomValue();
   end;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
-  strArray: TStringArray;
 begin
   if not Self.Filter.Walker then
     Exit(Self._HoverHelper(attempts));
 
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.RedClicked or (Self.Filter.UpText and MainScreen.IsUpText(Self.UpText)) then
-    Exit(True);
-
-  if Self.Filter.UpText then
-  begin
-    strArray := Self.UpText;
-    if Self.ActionUpText <> [] then
-      strArray := Self.ActionUpText;
-
-    if Self.CurrentUpText <> strArray then
-      Self.CurrentUpText := strArray;
-  end;
+  Result := Self._WalkUpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -950,30 +1065,18 @@ This is responsible for deciding wether we should walk to a TRSObject target or 
 *)
 function TRSObject._WalkHoverHelper(attempts: Int32): Boolean;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
-  strArray: TStringArray;
 begin
   if not Self.Filter.Walker then
     Exit(Self._HoverHelper(attempts));
 
-  if Self.RedClicked or (Self.Filter.UpText and MainScreen.IsUpText(Self.UpText)) then
-    Exit(True);
-
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText then
-  begin
-    strArray := Self.UpText;
-    if Self.ActionUpText <> [] then
-      strArray := Self.ActionUpText;
-
-    if Self.CurrentUpText <> strArray then
-      Self.CurrentUpText := strArray;
-  end;
+  Result := Self._WalkUpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -1069,7 +1172,7 @@ begin
   end;
 
   if Self.Filter.Walker and not TRSWalkerObject.Walker^.MakePointVisible(Self.Coordinates) then
-    Exit(False);
+    Exit;
 
   Result := (async and Self._AsyncHoverHelper(attempts)) or Self._HoverHelper(attempts);
 end;
@@ -1114,12 +1217,12 @@ begin
   if not Self.Filter.Walker then
     Exit;
 
-  if Self.Filter.UpText and (Self.CurrentUpText <> Self.UpText) then
-    Self.CurrentUpText := Self.UpText;
+  if Self.Filter.UpText and (TRSWalkerObject.CurrentUpText <> Self.UpText) then
+    TRSWalkerObject.CurrentUpText := Self.UpText;
 
   if not TRSWalkerObject.Walker^.MakePointVisible(Self.Coordinates) and
      not TRSWalkerObject.Walker^.WebWalk(Self.Coordinates, 30, 0.15) then
-      Exit(False);
+      Exit;
 
   Result := (async and Self._AsyncWalkHoverHelper(attempts)) or Self._WalkHoverHelper(attempts);
 end;
@@ -1225,9 +1328,10 @@ filter mmdots in/out of circles and/or polygons so we only focus on the TRSMMDot
 (*
 TRSMMDot.Setup
 ~~~~~~~~~~~~~~
-.. pascal:: procedure TRSMMDot.Setup(radius: Int32; shape: Vector3; coordinates: TPointArray); overload;
-.. pascal:: procedure TRSMMDot.Setup(radius: Int32; size, height: Double; coordinates: TPointArray); overload;
-.. pascal:: procedure TRSMMDot.Setup(radius: Int32; height: Double; coordinates: TPointArray); overload;
+.. pascal::
+  procedure TRSMMDot.SetupEx(radius: Int32; shape: Vector3; coordinates: TPointArray); overload;
+  procedure TRSMMDot.Setup(radius: Int32; size, height: Double; coordinates: TPointArray); overload;
+  procedure TRSMMDot.Setup(radius: Int32; height: Double; coordinates: TPointArray); overload;
 
 All this extend the basic `TRSWalkerObject.Setup(coordinates: TPointArray)` specifically for TRSMMDots.
 For TRSMMDots this are the methods that should be used for setting them up initially.
@@ -1235,20 +1339,25 @@ For TRSMMDots this are the methods that should be used for setting them up initi
 In TRSMMDot.Setup(radius: Int32; shape: Vector3; coordinates: TPointArray),
 **radius** is used to create a simple TRSDotFilterArray of that radius with **cordinates** and their center point.
 **shape** should be a vector3 of the target shape in number of tiles:
-- shape.X: number of tiles of the target from west to east.
-- shape.Y: number of tiles of the target from north to south.
-- shape.Z: target height, this value has to be guessed, I recommend you try several values and debug it until it looks good to you.
-           As some examples, player and npcs height is around 7, bank chests 4, yew/magic trees 14/16.
+
+- shape.X: Number of tiles of the target from west to east.
+
+- shape.Y: Number of tiles of the target from north to south.
+
+- shape.Z: Target height, this value has to be guessed, I recommend you try several values and debug it until it looks good to you. As some examples, player and npcs height is around 7, bank chests 4, yew/magic trees 14/16.
+
 
 For NPCs that can move and are 1x2 tiles or any uneven number of tiles,
 I recommend you just set **shape.X** and **shape.Y** to the largest one. So a cow I would recommend making the shape 2x2.
 
 
 The other methods all call this first one with certain default values:
-- size makes shape.X and shape.Y equal to size.
-- if size is omited, shape.X and shape.Y are set to 1.
+
+- Size makes shape.X and shape.Y equal to size.
+
+- If size is omited, shape.X and shape.Y are set to 1.
 *)
-procedure TRSMMDot.Setup(radius: Int32; shape: Vector3; coordinates: TPointArray); overload;
+procedure TRSMMDot.SetupEx(radius: Int32; shape: Vector3; coordinates: TPointArray); overload;
 var
   p: TPoint;
 begin
@@ -1265,7 +1374,7 @@ end;
 
 procedure TRSMMDot.Setup(radius: Int32; size, height: Double; coordinates: TPointArray); overload;
 begin
-  Self.Setup(radius, [size, size, height], coordinates);
+  Self.SetupEx(radius, [size, size, height], coordinates);
 end;
 
 procedure TRSMMDot.Setup(radius: Int32; height: Double; coordinates: TPointArray); overload;
@@ -1339,8 +1448,9 @@ end;
 (*
 TRSMMDot.GetCuboidArray
 ~~~~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMMDot.GetCuboidArrayEx(out mmTPA, dots: TPointArray; out dotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray): TCuboidArray; overload;
-.. pascal:: function TRSMMDot.GetCuboidArray(): TCuboidArray; override;
+.. pascal::
+  function TRSMMDot.GetCuboidArrayEx(out mmTPA, dots: TPointArray; out dotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray): TCuboidArray; overload;
+  function TRSMMDot.GetCuboidArray(): TCuboidArray; override;
 
 Internal TRSMMDot method responsible for returning a TCuboidArray of our target on the 3D world (on mainscreen and outside of it).
 This uses the previous 2 helper methods to do this.
@@ -1371,6 +1481,8 @@ begin
     if dots = [] then
       Exit;
 
+    dots := dots.SortFrom(Minimap.Center());
+
     Exit(Minimap.GetCuboidArrayMS(dots, Self.ShapeArray, [-2, -2], angle));
   end;
 
@@ -1382,9 +1494,11 @@ begin
 
   if Self.Filter.MinimapDot then
   begin
-    dots := Minimap.Getdots(Self.DotType);
+    dots := Minimap.GetDots(Self.DotType);
     if dots = [] then
       Exit;
+
+    dots := dots.SortFrom(Minimap.Center());
 
     if Self.ShapeArray = [] then
       Self.ShapeArray.SetShape([1, 1, 1]);
@@ -1395,23 +1509,15 @@ end;
 
 
 (*
-TRSMMDot.Find
-~~~~~~~~~~~~~
-.. pascal:: function TRSMMDot.Find(out mmPoints, dots: TPointArray; out DotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
-.. pascal:: function TRSMMDot.Find(out atpa: T2DPointArray): Boolean; overload;
-.. pascal:: function TRSMMDot.Find(): Boolean; overload;
+TRSMMDot.FindEx
+~~~~~~~~~~~~~~~
+.. pascal:: function TRSMMDot.FindEx(out mmPoints, dots: TPointArray; out DotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
 
 TRSMMDot methods used to find a TRSMMDot. If found returns true, if not returns false.
-The first one is mostly meant for debugging and you should avoid calling it instead of the last 2 because it's slower due to gathering more data for the user.
-This is what is used in `Debug(TRSMMDot)`.
-
-Example
--------
-
-  WriteLn RSNPCs.LumbridgeCook.Find(atpa); //Be in lumbridge castle and with a walker setup there.
-  Debug(atpa);
+This "extended" method in particular is only meant for debugging and should be avoided outside of development/debugging.
+This is what is used when you call `Debug(TRSMMDot)`.
 *)
-function TRSMMDot.Find(out mmPoints, dots: TPointArray; out DotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
+function TRSMMDot.FindEx(out mmPoints, dots: TPointArray; out DotFilters: TRSDotFilterArray; out floorTiles: TRectArray; out roofTiles: TRectArray; out cuboidArray: TCuboidArray; out atpa: T2DPointArray): Boolean;
 begin
   MM2MS.SetupZoom();
 
@@ -1420,7 +1526,7 @@ begin
     cuboidArray := Self.GetCuboidArrayEx(mmPoints, dots, dotFilters, floorTiles, roofTiles);
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     atpa := Self.FindOnMainScreen(cuboidArray);
   end
@@ -1433,6 +1539,21 @@ begin
       Self.ClosestDot := TRSWalkerObject.Walker^.MSToWorld(atpa.First().Mean()); //not the best way since we are reversing operations but will do for now.
 end;
 
+(*
+TRSMMDot.Find
+~~~~~~~~~~~~~
+.. pascal::
+  function TRSMMDot.Find(out atpa: T2DPointArray): Boolean; overload;
+  function TRSMMDot.Find(): Boolean; overload;
+
+TRSMMDot methods used to find a TRSMMDot. If found returns true, if not returns false.
+
+Example
+-------
+
+  WriteLn RSNPCs.LumbridgeCook.Find(atpa); //Be in lumbridge castle and with a walker setup there.
+  Debug(atpa);
+*)
 function TRSMMDot.Find(out atpa: T2DPointArray): Boolean; overload;
 var
   cuboidArray: TCuboidArray;
@@ -1444,7 +1565,7 @@ begin
     cuboidArray := Self.GetCuboidArray();
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     atpa := Self.FindOnMainScreen(cuboidArray);
   end
@@ -1459,7 +1580,7 @@ begin
       Self.ClosestDot := TRSWalkerObject.Walker^.MSToWorld(ATPA[0].Mean());
 end;
 
-function TRSMMDot.Find(): Boolean; overload;
+function TRSMMDot.IsVisible(): Boolean; overload;
 var
   cuboidArray: TCuboidArray;
 begin
@@ -1470,13 +1591,25 @@ begin
     cuboidArray := Self.GetCuboidArray();
 
     if cuboidArray = [] then
-      Exit(False);
+      Exit;
 
     Exit(Self.OnMainScreen(cuboidArray));
   end;
 
   if Self.Filter.Finder then
     Result := MainScreen.FindObject(Self.Finder) <> [];
+end;
+
+(*
+TRSMMDot._GetBaseRecord
+~~~~~~~~~~~~~~~~~~~~~~
+.. pascal:: function TRSMMDot._GetBaseRecord(): TRSMMDot;
+
+Internal method used for casting custom TRSMMDots back to the base record.
+*)
+function TRSMMDot._GetBaseRecord(): TRSMMDot;
+begin
+  Result := Self;
 end;
 
 (*
@@ -1503,7 +1636,7 @@ var
   atpa: T2DPointArray;
   i: Int32;
 begin
-  Self.Find(mmPoints, dots, dotFilters, floorTiles, roofTiles, cuboidArray, atpa);
+  Self.FindEx(mmPoints, dots, dotFilters, floorTiles, roofTiles, cuboidArray, atpa);
 
   //Minimap drawing
   for i := 0 to High(mmPoints) do
@@ -1567,8 +1700,7 @@ begin
   Self.Draw(Bitmap);
   Bitmap.DrawBoxFilled(Chat.GetDisplayNameBox(), False, $00FFFF);
 
-  ForceDirectories('Screenshots\RSMMDots');
-  filePath := 'Screenshots\RSMMDots\Debug-' + ToStr(GetTickCount) + '.png';
+  filePath := GetScreenshotPath('TRSMMDot');
   Bitmap.SaveToFile(filePath);
   WriteLn('Send ', filePath, ' to Torwent on discord!');
   Bitmap.Debug();
@@ -1582,21 +1714,24 @@ end;
 (*
 TRSMMDot._AsyncHoverHelper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. pascal:: function TRSMMDot._AsyncHoverHelper(): Boolean;
-.. pascal:: function TRSMMDot._AsyncHoverHelper(attempts: Int32): Boolean; overload;
+.. pascal::
+  function TRSMMDot._AsyncHoverHelper(): Boolean;
+  function TRSMMDot._AsyncHoverHelper(attempts: Int32): Boolean; overload;
 
 Internal helper methods used to hover a TRSMMDot target asynchronously.
 You should not use this directly.
 *)
 function TRSMMDot._AsyncHoverHelper(): Boolean;
 var
+  shouldExit: Boolean;
   atpa: T2DPointArray;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
+  if Self.Filter.MinimapDot and (Minimap.GetDots(Self.DotType) = []) then
+    Exit;
 
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   if Self.Find(atpa) then
   begin
@@ -1617,18 +1752,17 @@ function TRSMMDot._AsyncHoverHelper(attempts: Int32): Boolean; overload;
     Result := atpa.RandomValue();
   end;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
-
   if Self.Filter.MinimapDot and (Minimap.GetDots(Self.DotType) = []) then
+    Exit;
+
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
     Exit;
 
   for attempt := 0 to attempts do
@@ -1685,18 +1819,17 @@ You should not use this directly.
 *)
 function TRSMMDot._HoverHelper(attempts: Int32): Boolean;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
 begin
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText and MainScreen.IsUpText(Self.UpText) then
-    Exit(True);
-
   if Self.Filter.MinimapDot and (Minimap.GetDots(Self.DotType) = []) then
+    Exit;
+
+  Result := Self._UpTextCheck(shouldExit);
+  if shouldExit then
     Exit;
 
   for attempt := 0 to attempts do
@@ -1753,30 +1886,18 @@ function TRSMMDot._AsyncWalkHoverHelper(attempts: Int32): Boolean;
     Result := atpa.RandomValue();
   end;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
-  strArray: TStringArray;
 begin
   if not Self.Filter.Walker then
     Exit(Self._HoverHelper(attempts));
 
-  if Self.RedClicked or (Self.Filter.UpText and MainScreen.IsUpText(Self.UpText)) then
-    Exit(True);
-
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText then
-  begin
-    strArray := Self.UpText;
-    if Self.ActionUpText <> [] then
-      strArray := Self.ActionUpText;
-
-    if Self.CurrentUpText <> strArray then
-      Self.CurrentUpText := strArray;
-  end;
+  Result := Self._WalkUpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -1846,30 +1967,18 @@ This is responsible for deciding wether we should walk to a TRSMMDot target or n
 *)
 function TRSMMDot._WalkHoverHelper(attempts: Int32): Boolean;
 var
+  shouldExit: Boolean;
   attempt: Int32;
   atpa: T2DPointArray;
   tpa: TPointArray;
   angle: Double;
-  strArray: TStringArray;
 begin
   if not Self.Filter.Walker then
     Exit(Self._HoverHelper(attempts));
 
-  if Self.RedClicked or (Self.Filter.UpText and MainScreen.IsUpText(Self.UpText)) then
-    Exit(True);
-
-  if (MainScreen.Mode = ERSClientMode.FIXED) and MainScreen.HasInterface() then
-    Exit(False);
-
-  if Self.Filter.UpText then
-  begin
-    strArray := Self.UpText;
-    if Self.ActionUpText <> [] then
-      strArray := Self.ActionUpText;
-
-    if Self.CurrentUpText <> strArray then
-      Self.CurrentUpText := strArray;
-  end;
+  Result := Self._WalkUpTextCheck(shouldExit);
+  if shouldExit then
+    Exit;
 
   for attempt := 0 to attempts do
   begin
@@ -1935,7 +2044,7 @@ Example
 *)
 function TRSMMDot.AsyncHover(): Boolean;
 begin
-  Result := Self._AsyncHoverHelper;
+  Result := Self._AsyncHoverHelper();
 end;
 
 (*
@@ -1972,8 +2081,11 @@ begin
     ChooseOption.Close();
   end;
 
+  if Self.Filter.UpText and (TRSWalkerObject.CurrentUpText <> Self.UpText) then
+    TRSWalkerObject.CurrentUpText := Self.UpText;
+
   if Self.Filter.Walker and not TRSWalkerObject.Walker^.MakePointVisible(Self.Coordinates) then
-    Exit(False);
+    Exit;
 
   Result := (Async and Self._AsyncHoverHelper(attempts)) or Self._HoverHelper(attempts);
 end;
@@ -2020,12 +2132,12 @@ begin
   if not Self.Filter.Walker then
     Exit;
 
-  if Self.Filter.UpText and (Self.CurrentUpText <> Self.UpText) then
-    Self.CurrentUpText := Self.UpText;
+  if Self.Filter.UpText and (TRSWalkerObject.CurrentUpText <> Self.UpText) then
+    TRSWalkerObject.CurrentUpText := Self.UpText;
 
   if not TRSWalkerObject.Walker^.MakePointVisible(Self.Coordinates) and
      not TRSWalkerObject.Walker^.WebWalk(Self.Coordinates, 30, 0.15) then
-      Exit(False);
+      Exit;
 
   Result := (Async and Self._AsyncWalkHoverHelper(attempts)) or Self._WalkHoverHelper(attempts);
 end;
@@ -2177,7 +2289,7 @@ begin
   if Self.Filter.Skip then
     Exit;
 
-  Self.Setup();
+  Self._Setup();
 
   Self.UpText := upText;
 
@@ -2201,7 +2313,7 @@ begin
   if Self.Filter.Skip then
     Exit;
 
-  Self.Setup();
+  Self._Setup();
 
   Self.UpText := upText;
 
@@ -2225,7 +2337,7 @@ begin
   if Self.Filter.Skip then
     Exit;
 
-  Self.Setup();
+  Self._Setup();
 
   Self.UpText := upText;
 
@@ -2285,8 +2397,9 @@ end;
 (*
 Debug
 ~~~~~
-.. pascal:: procedure Debug(rsobject: TRSObject); overload;
-.. pascal:: procedure Debug(mmdot: TRSMMDot); overload;
+.. pascal::
+  procedure Debug(rsobject: TRSObject); overload;
+  procedure Debug(mmdot: TRSMMDot); overload;
 
 Methods used to debug TRSObjects and TRSMMDots.
 
@@ -2321,28 +2434,18 @@ end;
 
 var
   DebugObjectArray: TRSObjectArray;
-  DebugNPCArray:    TRSNPCArray;
-  DebugGItemArray:  TRSGroundItemArray;
-  DebugPlayerArray: TRSPlayerArray;
+  DebugMMDotArray: array of TRSMMDot;
 
 procedure TSRL.Debug(Bitmap: TMufasaBitmap); override;
 var
   DebugObject: TRSObject;
-  DebugNPC:    TRSNPC;
-  DebugGItem:  TRSGroundItem;
-  DebugPlayer: TRSPlayer;
+  DebugDot: TRSMMDot;
 begin
   inherited;
 
   for DebugObject in DebugObjectArray do
     DebugObject.Draw(Bitmap);
 
-  for DebugNPC in DebugNPCArray do
-    DebugNPC.Draw(Bitmap);
-
-  for DebugGItem in DebugGItemArray do
-    DebugGItem.Draw(Bitmap);
-
-  for DebugPlayer in DebugPlayerArray do
-    DebugPlayer.Draw(Bitmap);
+  for DebugDot in DebugMMDotArray do
+    DebugDot.Draw(Bitmap);
 end;
